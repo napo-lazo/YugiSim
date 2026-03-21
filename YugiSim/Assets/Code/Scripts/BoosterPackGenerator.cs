@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,18 +15,66 @@ public class BoosterPackGenerator : MonoBehaviour
         frontMaterial.material.mainTexture = frontTexture;
     }
 
+    private string PickRarityPool(List<Tuple<string, float>> ratios)
+    {
+        float randomCeiling = 0;
+
+        foreach(Tuple<string, float> ratio in ratios)
+        {
+            randomCeiling += ratio.Item2;
+        }
+
+        float randomNumber = UnityEngine.Random.Range(0f, randomCeiling);
+        string selectedRarity = null;
+
+        foreach (Tuple<string, float> ratio in ratios) 
+        {
+            randomNumber -= ratio.Item2;
+
+            if (randomNumber <= 0)
+            {
+                selectedRarity = ratio.Item1;
+                if (ratio.Item1 == "SP")
+                    Debug.Log("Short print was picked");
+                break;
+            }
+        }
+
+        return selectedRarity;
+    }
+
+    private List<Tuple<string, float>> BuildRatiosByPackIndex(int index)
+    {
+        List<Tuple<string, float>> ratios = new List<Tuple<string, float>>();
+
+        if (index < 8)
+        {
+            ratios.Add(new Tuple<string, float>("SP", 0.05f));
+            ratios.Add(new Tuple<string, float>("C", 0.95f));
+        }
+        else
+        {
+            ratios.Add(new Tuple<string, float>("R", 0.90f));
+            ratios.Add(new Tuple<string, float>("SR", 0.6f));
+            ratios.Add(new Tuple<string, float>("UR", 0.03f));
+            ratios.Add(new Tuple<string, float>("ScR", 0.01f));
+        }
+
+        return ratios;
+    }
+
     private void GenerateBoosterPack(List<GameObject> cards, int cardQuantity)
     {
-        List<int> cardIds = DBManager.GetCardsFromSet("LOB-EN");
+        Dictionary<string, List<int>> cardIdsByRarity = DBManager.GetCardsFromSet("LOB-EN");
         List<int> pickedCards = new List<int>();
-        int totalCardQuantity = cardIds.Count;
 
         for (int i = 0; i < cardQuantity; i++)
         {
-            int pickedCard = cardIds[Random.Range(0, totalCardQuantity)];
+            string rarityChosen = PickRarityPool(BuildRatiosByPackIndex(i));
+            int totalCardQuantity = cardIdsByRarity[rarityChosen].Count;
+            int pickedCard = cardIdsByRarity[rarityChosen][UnityEngine.Random.Range(0, totalCardQuantity)];
             pickedCards.Add(pickedCard);
             SetCardImage(cards[i], pickedCard.ToString());
-            Debug.Log(pickedCard);
         }
     }
 

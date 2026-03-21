@@ -6,16 +6,32 @@ static public class DBManager
 {
     private struct DBConstants
     {
-        public const string CARD = "Card";
-        public const string CARD_SET = "Card_Set";
+        public struct CARD
+        {
+            public const string TABLE_NAME = "Card";
+            public struct COLUMNS
+            {
+                public const string ID = "Id";
+            }
+        }
+
+        public struct CARD_SET
+        {
+            public const string TABLE_NAME = "Card_Set";
+            public struct COLUMNS
+            {
+                public const string RARITY = "Rarity";
+            }
+        }
+
         public const string SET = "YugiohSet";
     }
 
     private const string dbName = "URI=file:YugiSim.db";
 
-    static public List<int> GetCardsFromSet(string setName)
+    static public Dictionary<string, List<int>> GetCardsFromSet(string setName)
     {
-        List<int> cardIds = new List<int>();
+        Dictionary<string, List<int>> cardIdsByRarity = new Dictionary<string, List<int>>();
 
         using (SqliteConnection connection = new SqliteConnection(dbName))
         {
@@ -23,12 +39,17 @@ static public class DBManager
 
             using (SqliteCommand cmd = connection.CreateCommand())
             {
-                cmd.CommandText = $"SELECT Id FROM {DBConstants.CARD} JOIN Card_Set on Card.Id = Card_Set.CardId WHERE Card_Set.SetCode = '{setName}'";
+                cmd.CommandText = $"SELECT {DBConstants.CARD.COLUMNS.ID}, {DBConstants.CARD_SET.COLUMNS.RARITY} FROM {DBConstants.CARD.TABLE_NAME} JOIN Card_Set on Card.Id = Card_Set.CardId WHERE Card_Set.SetCode = '{setName}'";
                 using (SqliteDataReader reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
                     {
-                        cardIds.Add(Convert.ToInt32(reader["Id"]));
+                        string rarity = Convert.ToString(reader[DBConstants.CARD_SET.COLUMNS.RARITY]);
+
+                        if (!cardIdsByRarity.ContainsKey(rarity))
+                            cardIdsByRarity[rarity] = new List<int>();
+
+                        cardIdsByRarity[rarity].Add(Convert.ToInt32(reader[DBConstants.CARD.COLUMNS.ID]));
                     }
                 }
             }
@@ -36,6 +57,6 @@ static public class DBManager
             connection.Close();
         }
 
-        return cardIds;
+        return cardIdsByRarity;
     }
 }

@@ -65,16 +65,40 @@ public class BoosterPackGenerator : MonoBehaviour
 
     private void GenerateBoosterPack(List<GameObject> cards, int cardQuantity)
     {
-        Dictionary<string, List<int>> cardIdsByRarity = DBManager.GetCardsFromSet("LOB-EN");
-        List<int> pickedCards = new List<int>();
+        string testSetCode = "LOB-EN";
+        Dictionary<string, List<int>> cardIdsByRarity = DBManager.GetCardsFromSet(testSetCode);
+        Dictionary<int, int> cardsInCollection = new Dictionary<int, int>();
+        Dictionary<int, int> pickedCards = new Dictionary<int, int>();
+        List<int> cardIds = new List<int>();
 
         for (int i = 0; i < cardQuantity; i++)
         {
             string rarityChosen = PickRarityPool(BuildRatiosByPackIndex(i));
             int totalCardQuantity = cardIdsByRarity[rarityChosen].Count;
             int pickedCard = cardIdsByRarity[rarityChosen][UnityEngine.Random.Range(0, totalCardQuantity)];
-            pickedCards.Add(pickedCard);
-            SetCardImage(cards[i], pickedCard.ToString());
+
+            cardIds.Add(pickedCard);
+            if (!pickedCards.ContainsKey(pickedCard))
+                pickedCards.Add(pickedCard, 1);
+            else
+                pickedCards[pickedCard]++;
+        }
+
+        cardsInCollection = DBManager.GetListedCardsFromCollectionBySet(testSetCode, pickedCards.Keys.ToList());
+
+        DBManager.InsertCardsIntoCollection(testSetCode, pickedCards.Keys.Except(cardsInCollection.Keys.ToList()).ToList());
+
+        int quantityCounter = 1;
+        while(pickedCards.Count > 0)
+        {
+            DBManager.UpdateCardsQuantityFromCollection(testSetCode, pickedCards, quantityCounter);
+            pickedCards = pickedCards.Where(x => x.Value > quantityCounter).ToDictionary(x => x.Key, x => x.Value);
+            quantityCounter++;
+        }
+
+        for (int i = 0; i < cardQuantity; i++)
+        {
+            SetCardImage(cards[i], cardIds[i].ToString());
         }
     }
 

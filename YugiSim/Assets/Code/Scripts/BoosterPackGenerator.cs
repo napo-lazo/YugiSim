@@ -6,6 +6,8 @@ using UnityEngine;
 
 public class BoosterPackGenerator : MonoBehaviour
 {
+    public List<GameObject> cards;
+
     private void SetCardImage(GameObject card, string imageName)
     {
         Transform front = card.transform.Find("Front");
@@ -63,12 +65,14 @@ public class BoosterPackGenerator : MonoBehaviour
         return ratios;
     }
 
-    private void GenerateBoosterPack(List<GameObject> cards, int cardQuantity)
+    public void GenerateBoosterPack(List<GameObject> cards, int cardQuantity)
     {
         string testSetCode = "LOB-EN";
         Dictionary<string, List<int>> cardIdsByRarity = DBManager.GetCardsFromSet(testSetCode);
         Dictionary<int, int> cardsInCollection = new Dictionary<int, int>();
         Dictionary<int, int> pickedCards = new Dictionary<int, int>();
+        Dictionary<int, int> cardsToInsert = new Dictionary<int, int>();
+        Dictionary<int, int> cardsToUpdate = new Dictionary<int, int>();
         List<int> cardIds = new List<int>();
 
         for (int i = 0; i < cardQuantity; i++)
@@ -85,14 +89,16 @@ public class BoosterPackGenerator : MonoBehaviour
         }
 
         cardsInCollection = DBManager.GetListedCardsFromCollectionBySet(testSetCode, pickedCards.Keys.ToList());
+        cardsToInsert = pickedCards.Where(x => !cardsInCollection.ContainsKey(x.Key)).ToDictionary(x => x.Key, x => x.Value);
+        cardsToUpdate = pickedCards.Where(x => !cardsToInsert.ContainsKey(x.Key)).ToDictionary(x => x.Key, x => x.Value);
 
-        DBManager.InsertCardsIntoCollection(testSetCode, pickedCards.Keys.Except(cardsInCollection.Keys.ToList()).ToList());
+        DBManager.InsertCardsIntoCollection(testSetCode, cardsToInsert);
 
         int quantityCounter = 1;
-        while(pickedCards.Count > 0)
+        while(cardsToUpdate.Count > 0)
         {
-            DBManager.UpdateCardsQuantityFromCollection(testSetCode, pickedCards, quantityCounter);
-            pickedCards = pickedCards.Where(x => x.Value > quantityCounter).ToDictionary(x => x.Key, x => x.Value);
+            DBManager.UpdateCardsQuantityFromCollection(testSetCode, cardsToUpdate, quantityCounter);
+            cardsToUpdate = cardsToUpdate.Where(x => x.Value > quantityCounter).ToDictionary(x => x.Key, x => x.Value);
             quantityCounter++;
         }
 
@@ -105,7 +111,7 @@ public class BoosterPackGenerator : MonoBehaviour
     // Start is called before the first frame update
     void Awake()
     {
-        List<GameObject> cards = Resources.FindObjectsOfTypeAll<GameObject>().Where(obj => obj.name.StartsWith("Card")).ToList();
+        cards = Resources.FindObjectsOfTypeAll<GameObject>().Where(obj => obj.name.StartsWith("Card")).ToList();
         GenerateBoosterPack(cards, 9);
     }
 }

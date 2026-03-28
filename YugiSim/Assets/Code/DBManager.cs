@@ -71,23 +71,27 @@ static public class DBManager
         return cardIdsByRarity;
     }
 
-    static public void InsertCardsIntoCollection(string setCode, List<int> uniqueCards)
+    static public void InsertCardsIntoCollection(string setCode, Dictionary<int, int> uniqueCards)
     {
+        if (uniqueCards == null || uniqueCards.Count == 0)
+            return;
+
+        string valuesList = "";
+
+        foreach (KeyValuePair<int, int> card in uniqueCards)
+        {
+            valuesList += $" ({card.Key}, '{setCode}', {card.Value}),";
+        }
+
+        valuesList = valuesList.Remove(valuesList.Length - 1);
+
         using (SqliteConnection connection = new SqliteConnection(dbName))
         {
             connection.Open();
 
             using (SqliteCommand cmd = connection.CreateCommand())
             {
-                cmd.CommandText = $"INSERT INTO {DBConstants.COLLECTION.TABLE_NAME} VALUES";
-
-                foreach(int card in uniqueCards)
-                {
-                    cmd.CommandText += $" ({card}, '{setCode}', 1),";
-                }
-
-                cmd.CommandText = cmd.CommandText.Remove(cmd.CommandText.Length - 1);
-
+                cmd.CommandText = $"INSERT INTO {DBConstants.COLLECTION.TABLE_NAME} VALUES{valuesList}";
                 cmd.ExecuteNonQuery();
             }
 
@@ -100,21 +104,39 @@ static public class DBManager
         using (SqliteConnection connection = new SqliteConnection(dbName))
         {
             connection.Open();
-
             using (SqliteCommand cmd = connection.CreateCommand())
             {
                 string cardList = "(";
-
                 foreach (KeyValuePair<int, int> card in cards)
                 {
                     if (card.Value == amount)
                         cardList += $"{card.Key}, ";
                 }
 
+                //Means no cards with the current update amount are in the list
+                if (cardList == "(")
+                    return;
+
                 cardList = cardList.Remove(cardList.Length - 2);
                 cardList += ")";
 
                 cmd.CommandText = $"UPDATE {DBConstants.COLLECTION.TABLE_NAME} SET {DBConstants.COLLECTION.COLUMNS.QUANTITY} = {DBConstants.COLLECTION.COLUMNS.QUANTITY} + {amount} WHERE {DBConstants.COLLECTION.COLUMNS.SETCODE} = '{setCode}' AND {DBConstants.COLLECTION.COLUMNS.CARDID} IN {cardList}";
+                cmd.ExecuteNonQuery();
+            }
+
+            connection.Close();
+        }
+    }
+
+    static public void DeleteCollection()
+    {
+        using (SqliteConnection connection = new SqliteConnection(dbName))
+        {
+            connection.Open();
+
+            using (SqliteCommand cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = $"DELETE FROM {DBConstants.COLLECTION.TABLE_NAME}";
                 cmd.ExecuteNonQuery();
             }
 
